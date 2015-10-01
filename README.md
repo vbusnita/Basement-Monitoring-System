@@ -4,11 +4,11 @@ This is a hardware monitor for basement water infiltrations. It is based on a Pa
 
 The webhook for sending the data to the collection server is:
 
-   {
-     "event": "send_owl_data",
-     "noDefaults": true,
-     "mydevices": true,
-     "url":"<my_collection_server>",
-     "requestType": "POST",
-     "json":{"data":"{{SPARK_EVENT_VALUE}}"}
-   }
+    {
+         "event": "send_owl_data",
+         "noDefaults": true,
+         "mydevices": true,
+         "url":"<my_collection_server>",
+         "requestType": "POST",
+         "json":{"data":"{{SPARK_EVENT_VALUE}}"}
+    }

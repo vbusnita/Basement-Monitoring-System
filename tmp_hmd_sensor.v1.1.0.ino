@@ -1,31 +1,3 @@
-/* In this version (1.1.0):
-
-Stuff alrady done:
-- Changed bool to boolean, to mach the firmware syntax documentation
-- Removed un-necessary code (eg. n++; which was previousely used as an incremoetor)
-- Declared function prototypes for all functions used in the code
-- Paced the Case control statement inside a separate function for code organization purpose
-(P1) Created a time delay for resending the Push notification so it does not jam the pushover.net with continuous requests
-- Added a custom icon for our notification screen (icon created by Sev Minassian)
-- Created webhooks for starting/stopping the Philips Hue lights alarm recipe
-(a group of 4 lights will breathe bright red for 15 sec while the alarm is triggered by the LCIs)
-- Fixed an issue where where the push notification delay would prevent the ability to call the soundAlarm function externally
-- Print time stamp when debugging for more clarity
-- Made my events PRIVATE so no one else can subscribe to them (if no "data" is passed to the Spark.publish() event, replace by NULL)
-- Update the time to the correct time zone when the program starts (in setup())
-(P2) Create a webhooks for debugging mode and sendData mode. Both of these requests are made within the sendData function
-
-
-
-Stuff to do:
-- Make the system modular, so as one faulty module does not compromise the entire system
-- Add the firmware version to the sendData string, to let the Django server know the capabilities available
--(set and inteerrupt for our sendData, used when the Particle server is down.
-(This will be probably done in v2.0)
-- Optimize code further
- */
-
-
 #include "PietteTech_DHT.h"
 
 // system defines
@@ -49,8 +21,6 @@ unsigned long DHTnextSampleTime;	        // Next time we want to start sample
 unsigned long alarmTimer;
 unsigned long dfuPushTimer;
 
-boolean bDHTstarted;		                    // flag to indicate we started acquisition
-int n;                                  // counter
 int lci1 = D0;                           // Assign pin D0 of the core to lci1
 int lci2 = D1;                          // Assign pin D1 of the core to lci2
 int soundAlarm = D2;                     // Assign pin D2 of the core to the Buzzer
@@ -114,7 +84,7 @@ void setup()
 
     DHTnextSampleTime = 0; //Set the first sample time to start immediately
     alarmTimer = 0; //Set the alarm to trigger at first read
-    dfuPushTimer = 0;  
+    dfuPushTimer = 0;
 }
 
 //Define wrapper in charge of calling like this for the PietteTech_DHT lib to work
@@ -133,16 +103,9 @@ void loop() {
     }
     //Verify DHT sensor status, get the data from sensors, and send data to server for analisys
     if (millis() > DHTnextSampleTime) {   // Check if we need to start the next sample
-              // start the sample by reading the sensor data
-              if (!bDHTstarted) {
-  	               //Start acquiring data from sensor
-                    DHT.acquire();
-  	                bDHTstarted = true;  //Sample flag active
-                }
-              // Verifies if the sensor has read the data and everything is ok
-              if (!DHT.acquiring())        {   //Starting acquiring sensor Data
+
                           // get DHT status
-                          int result = DHT.getStatus();
+                          int result = DHT.acquireAndWait();
                             if(sensorStatus(result)) {
 
                               float humidity = DHT.getHumidity(); //Get the humidity reading
@@ -159,8 +122,6 @@ void loop() {
                               //Send the request string and the status of the debug port usage to the sendData function
                               sendData(request, useDebugPort);
 
-                              //Update the sample rate of return
-                              bDHTstarted = false;  // reset the sample flag so we can take another
                               DHTnextSampleTime = millis() + DHT_SAMPLE_INTERVAL;  // set the time for next sample
 
                         } else {
@@ -170,7 +131,6 @@ void loop() {
                               Spark.publish("basement_leak", "DHT22 sensor ERROR!\nLyra is put in DFU mode!", 60, PRIVATE);
                               System.dfu();
                             }
-              } //end acquiring sensor Data
         } // sample processing acording to delay
 } //end main loop()
 

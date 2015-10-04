@@ -7,8 +7,8 @@
 #define alarmTimerDelay 15 * 60000                 //Delay the alarm for 15 min (millisecond value)
 
 //assume LCI's are idle until we check
-String lci1Value = "false";
-String lci2Value = "false";
+boolean lci1Value = "false";
+boolean lci2Value = "false";
 
 //declaration
 void dht_wrapper();    // must be declared before the lib initialization
@@ -20,6 +20,9 @@ void dht_wrapper();    // must be declared before the lib initialization
 unsigned long DHTnextSampleTime;	        // Next time we want to start sample
 unsigned long alarmTimer;
 unsigned long dfuPushTimer;
+float humidity = 0.000000;
+float degrees = 0.000000;
+
 
 int lci1 = D0;                           // Assign pin D0 of the core to lci1
 int lci2 = D1;                          // Assign pin D1 of the core to lci2
@@ -53,8 +56,9 @@ boolean sensorStatus(int value);  // Function for case statement
 void sendData(String request, boolean debugging);
 boolean lci1ExposedToWater(void);
 boolean lci2ExposedToWater(void);
-boolean checkLCIs(void);
-int startAlarm(String command);
+int alarmModule(String command);
+boolean envSensorModule(void);  //Program module that deals with the DHT22 (tmp/hmd) sensor data acquiring
+boolean lciSensorModule(void); //Program module that deals wiht the Groove water sensors data verification
 
 void setup()
 {
@@ -80,11 +84,11 @@ void setup()
     //Cloud variable and function declarations
     Spark.variable("temp", &tmp, INT);
     Spark.variable("humidity", &hmd, INT);
-    Spark.function("soundAlarm", startAlarm);
+    Spark.function("alarmModule", alarmModule);
 
     DHTnextSampleTime = 0; //Set the first sample time to start immediately
     alarmTimer = 0; //Set the alarm to trigger at first read
-    dfuPushTimer = 0;
+
 }
 
 //Define wrapper in charge of calling like this for the PietteTech_DHT lib to work
@@ -94,81 +98,108 @@ void loop() {
 
     checkForDebugMode();  //Verify if the debug button was pressed
 
-    //Verify if any LCI is tripped, sound Alarm if needed and set the proper values to send to the Server for analisys
-    if(checkLCIs()) {
+    if (lciSensorModule()) {
+      Serial.println("The LCI sensor module detected a problem!");
       if(millis() > alarmTimer) {
-        startAlarm("startAlarm");
+        alarmModule("start");
         alarmTimer = millis() + alarmTimerDelay; //Wait 15 min before repeating alarm if needed
       }
+
+    } else {
+      lci1Value = false;
+      lci2Value = false;
     }
+
     //Verify DHT sensor status, get the data from sensors, and send data to server for analisys
     if (millis() > DHTnextSampleTime) {   // Check if we need to start the next sample
 
-                          // get DHT status
-                          int result = DHT.acquireAndWait();
-                            if(sensorStatus(result)) {
+            if (envSensorModule())
+              Serial.println("The DHT22 sensor module is good to go!");
+             else {
+              //Notify the serial monitor of error with the sensor reading and place Photon in DFU mode for reflashing
+              Serial.println("An error occured with the DHT22 sensor module");
+              delay(2000);
+              Spark.publish("basement_leak", "DHT22 ERROR!", 60, PRIVATE);
+              degrees = 0.000000;
+              humidity = 0.000000;
+            }
 
-                              float humidity = DHT.getHumidity(); //Get the humidity reading
-                              float degrees = DHT.getCelsius();   //Get the temperature reading
+            //Format the request string in json format for the POST request
+            String request = "{\"sourceName\":\"Lyra\",\"temperature\":\"" + String(degrees) + "\",\"humidity\":\"" +
+            String(humidity) + "\",\"lci1\":\"" + String(lci1Value) + "\",\"lci2\":\"" + String(lci2Value) + "\"}";
+            
+            //Send the request string and the status of the debug port usage to the sendData function
+            sendData(request, useDebugPort);
 
-                              //Assign values for the Spark variables
-                              tmp = degrees;
-                              hmd = humidity;
+            DHTnextSampleTime = millis() + DHT_SAMPLE_INTERVAL;  // set the time for next sample
 
-                              //Format the request string in json format for the POST request
-                              String request = "{\"sourceName\":\"Lyra\",\"temperature\":\"" + String(degrees) + "\",\"humidity\":\"" +
-                              String(humidity) + "\",\"lci1\":\"" + String(lci1Value) + "\",\"lci2\":\"" + String(lci2Value) + "\"}";
-
-                              //Send the request string and the status of the debug port usage to the sendData function
-                              sendData(request, useDebugPort);
-
-                              DHTnextSampleTime = millis() + DHT_SAMPLE_INTERVAL;  // set the time for next sample
-
-                        } else {
-                              //Notify the serial monitor of error with the sensor reading and place Photon in DFU mode for reflashing
-                              Serial.println("An error occured while reading the DHT22 sensor...");
-                              delay(2000);
-                              Spark.publish("basement_leak", "DHT22 sensor ERROR!\nLyra is put in DFU mode!", 60, PRIVATE);
-                              System.dfu();
-                            }
-        } // sample processing acording to delay
+      } // sample processing acording to delay
 } //end main loop()
 
-boolean sensorStatus(int value) {
-  boolean state = false;
-      Serial.print("Read sensor: ");
-        switch (value) {
-          case DHTLIB_OK:
-              Serial.println("OK");
-              state = true;
-              break;
-          case DHTLIB_ERROR_CHECKSUM:
-              Serial.println("Error\n\r\tChecksum error");
-              break;
-          case DHTLIB_ERROR_ISR_TIMEOUT:
-              Serial.println("Error\n\r\tISR time out error");
-              break;
-          case DHTLIB_ERROR_RESPONSE_TIMEOUT:
-              Serial.println("Error\n\r\tResponse time out error");
-              break;
-          case DHTLIB_ERROR_DATA_TIMEOUT:
-              Serial.println("Error\n\r\tData time out error");
-              break;
-          case DHTLIB_ERROR_ACQUIRING:
-              Serial.println("Error\n\r\tAcquiring");
-              break;
-          case DHTLIB_ERROR_DELTA:
-              Serial.println("Error\n\r\tDelta time to small");
-              break;
-          case DHTLIB_ERROR_NOTSTARTED:
-              Serial.println("Error\n\r\tNot started");
-              break;
-          default:
-              Serial.println("Unknown error");
-              break;
-          } //end switch
-        return state;
+
+boolean envSensorModule(void) {
+  boolean status = false;
+
+  // get DHT status
+  int result = DHT.acquireAndWait();
+    Serial.print("Read sensor: ");
+      switch (result) {
+        case DHTLIB_OK:
+            Serial.println("OK");
+            status = true;
+            break;
+        case DHTLIB_ERROR_CHECKSUM:
+            Serial.println("Error\n\r\tChecksum error");
+            return status;
+        case DHTLIB_ERROR_ISR_TIMEOUT:
+            Serial.println("Error\n\r\tISR time out error");
+            return status;
+        case DHTLIB_ERROR_RESPONSE_TIMEOUT:
+            Serial.println("Error\n\r\tResponse time out error");
+            return status;
+        case DHTLIB_ERROR_DATA_TIMEOUT:
+            Serial.println("Error\n\r\tData time out error");
+            return status;
+        case DHTLIB_ERROR_ACQUIRING:
+            Serial.println("Error\n\r\tAcquiring");
+            return status;
+        case DHTLIB_ERROR_DELTA:
+            Serial.println("Error\n\r\tDelta time to small");
+            return status;
+        case DHTLIB_ERROR_NOTSTARTED:
+            Serial.println("Error\n\r\tNot started");
+            return status;
+        default:
+            Serial.println("Unknown error");
+            return status;
+        } //end switch
+
+    humidity = DHT.getHumidity(); //Get the humidity reading
+    degrees = DHT.getCelsius();   //Get the temperature reading
+
+    //Assign values for the Spark variables
+    tmp = degrees;
+    hmd = humidity;
+
+  return status;
 }
+
+boolean lciSensorModule() {
+    boolean status = false;
+    //Check the water sensors
+    if(lci1ExposedToWater() || lci2ExposedToWater()) {
+        if(lci1ExposedToWater()) {
+          lci1Value = true;
+          status = true;
+        } else lci1Value = false;
+
+        if(lci2ExposedToWater()) {
+          lci2Value = true;
+          status = true;
+        } else lci2Value = false;
+      }
+      return status;
+  } //end checkLCIs function
 
 void checkForDebugMode() {
 
@@ -207,7 +238,7 @@ void checkForDebugMode() {
   // it'll be the lastButtonState:
   lastButtonState = reading;
   return;
-  } //End of checkForDebugMode function
+} //End of checkForDebugMode function
 
 void sendData(String request, boolean debugging) {
 
@@ -237,25 +268,8 @@ boolean lci2ExposedToWater() {
       return false;   //If water is NOT present return the value '0' (false)
 }
 
-boolean checkLCIs() {
-  boolean value = false;
-  //Check the water sensors
-  if(lci1ExposedToWater() || lci2ExposedToWater()) {
-      if(lci1ExposedToWater()) {
-        lci1Value = "true";
-        value = true;
-      } else lci1Value = "false";
-
-      if(lci2ExposedToWater()) {
-        lci2Value = "true";
-        value = true;
-      } else lci2Value = "false";
-    }
-    return value;
-} //end checkLCIs function
-
-int startAlarm(String command) {
-if(command == "startAlarm") {
+int alarmModule(String command) {
+if(command == "start") {
 
         //Publish webhook request to Pushover to push notification of leak to my iPhone
         Spark.publish("basement_leak", "Basement leak detected. Verify immediately!", 60, PRIVATE);

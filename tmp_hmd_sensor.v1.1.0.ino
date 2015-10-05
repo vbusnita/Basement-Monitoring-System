@@ -114,16 +114,15 @@ void loop() {
     //Verify DHT sensor status, get the data from sensors, and send data to server for analisys
     if (millis() > DHTnextSampleTime) {   // Check if we need to start the next sample
 
-            if (envSensorModule())
-              Serial.println("The DHT22 sensor module is good to go!");
-             else {
+            if (!envSensorModule()) {
               //Notify the serial monitor of error with the sensor reading and place Photon in DFU mode for reflashing
               Serial.println("An error occured with the DHT22 sensor module");
               delay(2000);
               Spark.publish("basement_leak", "DHT22 ERROR!", 60, PRIVATE);
               degrees = 0.000000;
               humidity = 0.000000;
-            }
+            } else
+              Serial.println("The DHT22 sensor module is good to go!");
 
             //Format the request string in json format for the POST request
             String request = "{\"sourceName\":\"Lyra\",\"fwVersion\":\"" + fwVersion + "\",\"temperature\":\"" + String(degrees) + "\",\"humidity\":\"" +

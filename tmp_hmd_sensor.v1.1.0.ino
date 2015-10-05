@@ -22,7 +22,7 @@ unsigned long alarmTimer;
 unsigned long dfuPushTimer;
 float humidity = 0.000000;
 float degrees = 0.000000;
-
+String fwVersion = "v1.1.0";
 
 int lci1 = D0;                           // Assign pin D0 of the core to lci1
 int lci2 = D1;                          // Assign pin D1 of the core to lci2
@@ -106,6 +106,7 @@ void loop() {
       }
 
     } else {
+      alarmTimer = 0;
       lci1Value = false;
       lci2Value = false;
     }
@@ -125,9 +126,9 @@ void loop() {
             }
 
             //Format the request string in json format for the POST request
-            String request = "{\"sourceName\":\"Lyra\",\"temperature\":\"" + String(degrees) + "\",\"humidity\":\"" +
+            String request = "{\"sourceName\":\"Lyra\",\"fwVersion\":\"" + fwVersion + "\",\"temperature\":\"" + String(degrees) + "\",\"humidity\":\"" +
             String(humidity) + "\",\"lci1\":\"" + String(lci1Value) + "\",\"lci2\":\"" + String(lci2Value) + "\"}";
-            
+
             //Send the request string and the status of the debug port usage to the sendData function
             sendData(request, useDebugPort);
 
@@ -273,6 +274,7 @@ if(command == "start") {
 
         //Publish webhook request to Pushover to push notification of leak to my iPhone
         Spark.publish("basement_leak", "Basement leak detected. Verify immediately!", 60, PRIVATE);
+
         Spark.publish("hue_alarm_start", NULL, 60, PRIVATE); //Start the Hue lights alarm
 
         //Trigger the alarm by making the pin 'D2' of the core 'HIGH'

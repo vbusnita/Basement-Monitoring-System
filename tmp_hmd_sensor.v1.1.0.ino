@@ -270,21 +270,19 @@ boolean lci2ExposedToWater() {
 }
 
 int alarmModule(String command) {
-if(command == "start") {
+	if(command != "start")
+			return -1;
 
-        //Publish webhook request to Pushover to push notification of leak to my iPhone
-        Spark.publish("basement_leak", "Basement leak detected. Verify immediately!", 60, PRIVATE);
+	//Publish webhook request to Pushover to push notification of leak to my iPhone
+	Spark.publish("basement_leak", "Basement leak detected. Verify immediately!", 60, PRIVATE);
+	Spark.publish("hue_alarm_start", NULL, 60, PRIVATE); //Start the Hue lights alarm
 
-        Spark.publish("hue_alarm_start", NULL, 60, PRIVATE); //Start the Hue lights alarm
+	//Trigger the alarm by making the pin 'D2' of the core 'HIGH'
+	digitalWrite(soundAlarm, HIGH);
+	delay(30000);   //Wait 30 seconds
+	digitalWrite(soundAlarm, LOW);  //Turn off alarm
 
-        //Trigger the alarm by making the pin 'D2' of the core 'HIGH'
-        digitalWrite(soundAlarm, HIGH);
-        delay(30000);   //Wait 30 seconds
-        digitalWrite(soundAlarm, LOW);  //Turn off alarm
-
-        //Stop the Hue lights alarm
-        Spark.publish("hue_alarm_stop", NULL, 60, PRIVATE);
-        return 1;
-    }
-else return -1;
+	//Stop the Hue lights alarm
+	Spark.publish("hue_alarm_stop", NULL, 60, PRIVATE);
+	return 1;
 }//end of startAlarm() function

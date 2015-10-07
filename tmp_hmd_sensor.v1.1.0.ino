@@ -3,8 +3,8 @@
 // system defines
 #define DHTTYPE  DHT22                             // Sensor type DHT11/21/22/AM2301/AM2302
 #define DHTPIN   A0         	                     // Digital pin used for communications
-#define DHT_SAMPLE_INTERVAL  60 * 1000             // Sample every minute (millisecond value)
-#define alarmTimerDelay 15 * 60000                 //Delay the alarm for 15 min (millisecond value)
+#define DHT_SAMPLE_INTERVAL  30 * 60000            // DHT22 Sample every 30 min (millisecond value)
+#define alarmTimerDelay 15 * 60000                 // Delay the alarm for 15 min (millisecond value)
 
 //assume LCI's are idle until we check
 boolean lci1Value = "false";
@@ -50,6 +50,9 @@ long debounceDelay = 50;    // the debounce time; increase if the output flicker
 int tmp = 0;
 int hmd = 0;
 
+//Variables to use with the uptime function
+int startTime;
+
 //Function Prototypes
 void checkForDebugMode(void);
 boolean sensorStatus(int value);  // Function for case statement
@@ -59,9 +62,11 @@ boolean lci2ExposedToWater(void);
 int alarmModule(String command);
 boolean envSensorModule(void);  //Program module that deals with the DHT22 (tmp/hmd) sensor data acquiring
 boolean lciSensorModule(void); //Program module that deals wiht the Groove water sensors data verification
+int uptime(String command);
 
 void setup()
 {
+    startTime = Time.now();
     Time.zone(-4); //Set the time zone for the time function
     //Open the serial com port for debugging
     Serial.begin(9600);
@@ -85,10 +90,10 @@ void setup()
     Spark.variable("temp", &tmp, INT);
     Spark.variable("humidity", &hmd, INT);
     Spark.function("alarmModule", alarmModule);
+    Spark.function("uptime", uptime);
 
     DHTnextSampleTime = 0; //Set the first sample time to start immediately
     alarmTimer = 0; //Set the alarm to trigger at first read
-
 }
 
 //Define wrapper in charge of calling like this for the PietteTech_DHT lib to work
@@ -96,7 +101,7 @@ void dht_wrapper() {DHT.isrCallback();}
 
 void loop() {
 
-    checkForDebugMode();  //Verify if the debug button was pressed
+      checkForDebugMode();  //Verify if the debug button was pressed
 
     if (lciSensorModule()) {
       Serial.println("The LCI sensor module detected a problem!");
@@ -285,3 +290,23 @@ int alarmModule(String command) {
 	Spark.publish("hue_alarm_stop", NULL, 60, PRIVATE);
 	return 1;
 }//end of startAlarm() function
+
+int uptime(String command) {
+  if (command != "getUptime")
+    return -1;
+
+  Time.zone(0);   //set TZ back to UTC to get accurate uptime
+  int currentUptime = (Time.now() - startTime);
+  int day = Time.day(currentUptime) - 1; //Set day to 0 at the beginning
+  int year;
+  if ((Time.year(currentUptime) - 1) == 1969) //Set year to 0 at the beginning
+    year = 0;
+  else
+    year = Time.year(currentUptime) - 1969; //Make sure year updates according to timelapse
+
+  //Format the uptimeData string
+  String uptimeData = "Uptime is: " + String(year) + "y:" + String(day) + "d:" + String(Time.format(currentUptime, "%H:%M"));
+  Particle.publish("basement_leak", uptimeData, 60, PRIVATE);  //Send the dataString to Pushover.net for request of push notification
+  Time.zone(-4); //set TZ back to EasternTime zone 
+  return 1;
+}

@@ -123,7 +123,7 @@ void loop() {
               //Notify the serial monitor of error with the sensor reading and place Photon in DFU mode for reflashing
               Serial.println("An error occured with the DHT22 sensor module");
               delay(2000);
-              Spark.publish("basement_leak", "DHT22 ERROR!", 60, PRIVATE);
+              Particle.publish("basement_leak", "DHT22 ERROR!", 60, PRIVATE);
               degrees = 0.000000;
               humidity = 0.000000;
             } else
@@ -254,9 +254,9 @@ void sendData(String request, boolean debugging) {
     Serial.print("\n\n");
 
     if (debugging)
-        Spark.publish("send_owl_data_debug", request, 60, PRIVATE);  //PRIVATE means nobody else can subscribe to my events
+        Particle.publish("send_owl_data_debug", request, 60, PRIVATE);  //PRIVATE means nobody else can subscribe to my events
     else
-        Spark.publish("send_owl_data", request, 60, PRIVATE);
+        Particle.publish("send_owl_data", request, 60, PRIVATE);
 
 } //end of sendData()
 
@@ -278,8 +278,8 @@ int alarmModule(String command) {
 			return -1;
 
 	//Publish webhook request to Pushover to push notification of leak to my iPhone
-	Spark.publish("basement_leak", "Basement leak detected. Verify immediately!", 60, PRIVATE);
-	Spark.publish("hue_alarm_start", NULL, 60, PRIVATE); //Start the Hue lights alarm
+	Particle.publish("basement_leak", "Basement leak detected. Verify immediately!", 60, PRIVATE);
+	Particle.publish("hue_alarm_start", NULL, 60, PRIVATE); //Start the Hue lights alarm
 
 	//Trigger the alarm by making the pin 'D2' of the core 'HIGH'
 	digitalWrite(soundAlarm, HIGH);
@@ -287,26 +287,33 @@ int alarmModule(String command) {
 	digitalWrite(soundAlarm, LOW);  //Turn off alarm
 
 	//Stop the Hue lights alarm
-	Spark.publish("hue_alarm_stop", NULL, 60, PRIVATE);
+	Particle.publish("hue_alarm_stop", NULL, 60, PRIVATE);
 	return 1;
 }//end of startAlarm() function
 
+//Fuctions for reading the current uptime of the Photon
 int uptime(String command) {
   if (command != "getUptime")
     return -1;
 
-  Time.zone(0);   //set TZ back to UTC to get accurate uptime
-  int currentUptime = (Time.now() - startTime);
-  int day = Time.day(currentUptime) - 1; //Set day to 0 at the beginning
-  int year;
-  if ((Time.year(currentUptime) - 1) == 1969) //Set year to 0 at the beginning
-    year = 0;
-  else
-    year = Time.year(currentUptime) - 1969; //Make sure year updates according to timelapse
+  //Declare variables to store the uptime variables
+  String day;
+  String uptimeData;
 
-  //Format the uptimeData string
-  String uptimeData = "Uptime is: " + String(year) + "y:" + String(day) + "d:" + String(Time.format(currentUptime, "%H:%M"));
-  Particle.publish("basement_leak", uptimeData, 60, PRIVATE);  //Send the dataString to Pushover.net for request of push notification
-  Time.zone(-4); //set TZ back to EasternTime zone 
+  //set TZ back to UTC to get accurate uptime
+  Time.zone(0);
+
+  //Get the difference in time since the Photon was powered on
+  int currentUptime = (Time.now() - startTime);
+  day = Time.format(currentUptime, "%j");
+  
+  //Format the uptimeData string according to these scenarios
+  uptimeData = "On day " + day + " the uptime is: " + String(Time.format(currentUptime, "%H:%M"));
+
+  //Send the dataString to Pushover.net for request of push notification
+  Particle.publish("basement_leak", uptimeData, 60, PRIVATE);
+
+  //set TZ back to EasternTime zone
+  Time.zone(-4);
   return 1;
-}
+} //End of the uptime function

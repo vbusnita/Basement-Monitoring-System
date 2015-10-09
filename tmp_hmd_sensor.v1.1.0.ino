@@ -66,8 +66,8 @@ int uptime(String command);
 
 void setup()
 {
-    startTime = Time.now();
     Time.zone(-4); //Set the time zone for the time function
+    startTime = Time.now();
     //Open the serial com port for debugging
     Serial.begin(9600);
     delay(3000); //Wait 3sec so we can start the serial monitor
@@ -127,7 +127,7 @@ void loop() {
               degrees = 0.000000;
               humidity = 0.000000;
             } else
-              Serial.println("The DHT22 sensor module is good to go!");
+              Serial.println("The DHT22 sensor module is good to go!\n");
 
             //Format the request string in json format for the POST request
             String request = "{\"sourceName\":\"Lyra\",\"fwVersion\":\"" + fwVersion + "\",\"temperature\":\"" + String(degrees) + "\",\"humidity\":\"" +
@@ -247,12 +247,13 @@ void checkForDebugMode() {
 
 void sendData(String request, boolean debugging) {
 
-    Serial.print("\nDebug mode: ");
-    Serial.println(port);
+    //Print stuff on the serial monitor for debugging
+    Serial.println("Sending data to server...");
+    Serial.println("Debug mode: " + String(port));
     Serial.println("Sending POST request: " + request);    //Sends these line to the console
-    Serial.print(Time.timeStr());
-    Serial.print("\n\n");
+    Serial.println(Time.timeStr() + "\n");
 
+    //Check to see if debug port is being used, if not use port 80
     if (debugging)
         Particle.publish("send_owl_data_debug", request, 60, PRIVATE);  //PRIVATE means nobody else can subscribe to my events
     else
@@ -296,24 +297,64 @@ int uptime(String command) {
   if (command != "getUptime")
     return -1;
 
-  //Declare variables to store the uptime variables
-  String day;
+  //Declare the necessary variables for calculating
+  //the uptime in years, days, hours and minutes
   String uptimeData;
-
-  //set TZ back to UTC to get accurate uptime
-  Time.zone(0);
+  int numberOfMinutes = 0;
+  int numberOfHours = 0;
+  int numberOfDays = 0;
+  int numberOfYears = 0;
+  int min = 0;
+  int hours = 0;
+  int days = 0;
+  int years = 0;
 
   //Get the difference in time since the Photon was powered on
-  int currentUptime = (Time.now() - startTime);
-  day = Time.format(currentUptime, "%j");
-  
-  //Format the uptimeData string according to these scenarios
-  uptimeData = "On day " + day + " the uptime is: " + String(Time.format(currentUptime, "%H:%M"));
+  double result = difftime(Time.now(), startTime);
+  //Extract minutes from result
+  numberOfMinutes = result / 60;
+
+  //Calculate the uptime in minutes, hours, days and years
+  //Start with getting the minutes and calculate hours, if present
+  if (numberOfMinutes > 60) {
+    numberOfHours = numberOfMinutes / 60;
+    min = numberOfMinutes % 60;
+  } else {
+    min = numberOfMinutes;
+    hours = 0;
+  }
+    //Get the hours and calculate days, if present
+    if (numberOfHours > 24) {
+        numberOfDays = numberOfHours / 24;
+        hours = numberOfHours % 24;
+        } else {
+          hours = numberOfHours;
+          days = 0;
+        }
+          //Get the days and calculate years, if present
+          if (numberOfDays > 365) {
+            numberOfYears = numberOfDays / 365;
+            days = numberOfDays % 365;
+            } else {
+              days = numberOfDays;
+              years = 0;
+            }
+
+  //Format the uptimeData string by ignoring 0's for hours, days and years
+  if (hours == 0 && days == 0 && years == 0)
+    uptimeData = "Uptime in (mm): " + String(min) + "min";
+  else if (days == 0 && years == 0)
+    uptimeData = "Uptime in (hh:mm): " + String(hours) + ":" + String(min);
+  else if (years == 0)
+    uptimeData = "Uptime in (dd:hh:mm): " + String(days) + ":" + String(hours) + ":" + String(min);
+  else
+    uptimeData = "Uptime in (yy:dd:hh:mm): " + String(years) + ":" + String(days) + ":" + String(hours) + ":" + String(min);
 
   //Send the dataString to Pushover.net for request of push notification
   Particle.publish("basement_leak", uptimeData, 60, PRIVATE);
+  //Print stuff on the serial monitor for debugging
+  Serial.println("Uptime Requested...");
+  Serial.println(String(uptimeData) + "\n");
 
-  //set TZ back to EasternTime zone
-  Time.zone(-4);
   return 1;
 } //End of the uptime function

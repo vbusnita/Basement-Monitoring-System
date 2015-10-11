@@ -10,19 +10,19 @@
 #include "PietteTech_DHT.h"                        //Library for controlling the DHT22 sensor
 
 /* System Defines------------------------------------------------------------------------------------------------*/
-#define DHTTYPE  DHT22                             // Sensor type DHT11/21/22/AM2301/AM2302
-#define DHTPIN   A0         	                     // Digital pin used for communications
-#define DHT_SAMPLE_INTERVAL  30 * 60000            // DHT22 Sample every 30 min (millisecond value)
-#define alarmTimerDelay 15 * 60000                 // Delay the alarm for 15 min (millisecond value)
+#define DHTTYPE  DHT22                             //Sensor type DHT11/21/22/AM2301/AM2302
+#define DHTPIN   A0         	                   //Digital pin used for communications
+#define DHT_SAMPLE_INTERVAL  30 * 60000            //DHT22 Sample every 30 min (millisecond value)
+#define alarmTimerDelay 15 * 60000                 //Delay the alarm for 15 min (millisecond value)
 
 /* Declaration of DHT wrapper------------------------------------------------------------------------------------*/
-void dht_wrapper();                                // must be declared before the lib initialization
+void dht_wrapper();                                //Must be declared before the lib initialization
 
 /* Lib instantiate-----------------------------------------------------------------------------------------------*/
   PietteTech_DHT DHT(DHTPIN, DHTTYPE, dht_wrapper);
 
 /* Global Variables----------------------------------------------------------------------------------------------*/
-unsigned long DHTnextSampleTime;	                // Next time we want to start sample
+unsigned long DHTnextSampleTime;	           //Next time we want to start sample
 unsigned long alarmTimer;
 unsigned long dfuPushTimer;
 
@@ -33,12 +33,12 @@ float degrees = 0.000000;
 String fwVersion = "v1.1.0";                      //String used to store the version of the application
 
 //Variables used for the Groove water sensors
-boolean lci1Value = "false";                      //assume LCI's are idle until we check
+boolean lci1Value = "false";                      //Assume LCI's are idle until we check
 boolean lci2Value = "false";                      //
 
-int lci1 = D0;                                    // Assign pin D0 of the core to lci1
-int lci2 = D1;                                    // Assign pin D1 of the core to lci2
-int soundAlarm = D2;                              // Assign pin D2 of the core to the Buzzer
+int lci1 = D0;                                    //Assign pin D0 of the core to lci1
+int lci2 = D1;                                    //Assign pin D1 of the core to lci2
+int soundAlarm = D2;                              //Assign pin D2 of the core to the Buzzer
 
 int port = 0;                                     //Set the debug port to 0
 int button = D3;
@@ -47,16 +47,16 @@ int ledGreen = D4;
 int ledRed = D5;
 
 // Variables used for the debug LED state:
-int ledGreenState = HIGH;                         // the current state of the output pin
+int ledGreenState = HIGH;                         //the current state of the output pin
 int ledRedState = LOW;
-int buttonState;                                  // the current reading from the input pin
-int lastButtonState = LOW;                        // the previous reading from the input pin
+int buttonState;                                  //the current reading from the input pin
+int lastButtonState = LOW;                        //the previous reading from the input pin
 boolean useDebugPort = LOW;
 
 // the following variables are long's because the time, measured in miliseconds,
 // will quickly become a bigger number than can be stored in an int.
-long lastDebounceTime = 0;                        // the last time the output pin was toggled
-long debounceDelay = 50;                          // the debounce time; increase if the output flickers
+long lastDebounceTime = 0;                        //the last time the output pin was toggled
+long debounceDelay = 50;                          //the debounce time; increase if the output flickers
 
 int tmp = 0;                                      //Particle online variables
 int hmd = 0;                                      //

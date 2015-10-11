@@ -47,16 +47,16 @@ int ledGreen = D4;
 int ledRed = D5;
 
 // Variables used for the debug LED state:
-int ledGreenState = HIGH;                         //the current state of the output pin
+int ledGreenState = HIGH;                         //The current state of the output pin
 int ledRedState = LOW;
-int buttonState;                                  //the current reading from the input pin
-int lastButtonState = LOW;                        //the previous reading from the input pin
+int buttonState;                                  //The current reading from the input pin
+int lastButtonState = LOW;                        //The previous reading from the input pin
 boolean useDebugPort = LOW;
 
 // the following variables are long's because the time, measured in miliseconds,
 // will quickly become a bigger number than can be stored in an int.
-long lastDebounceTime = 0;                        //the last time the output pin was toggled
-long debounceDelay = 50;                          //the debounce time; increase if the output flickers
+long lastDebounceTime = 0;                        //The last time the output pin was toggled
+long debounceDelay = 50;                          //The debounce time; increase if the output flickers
 
 int tmp = 0;                                      //Particle online variables
 int hmd = 0;                                      //

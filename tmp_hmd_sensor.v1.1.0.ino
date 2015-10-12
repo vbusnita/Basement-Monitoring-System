@@ -412,11 +412,13 @@ int uptime(String command) {
         else if (years == 0) {
           if (days < 99)
             uptimeData = String::format("Uptime in (dd:hh:mm): %02d:%02d:%02d", days, hours, min);
-              uptimeData = String::format("Uptime in (ddd:hh:mm): %03d:%02d:%02d", days, hours, min);
+          else
+            uptimeData = String::format("Uptime in (ddd:hh:mm): %03d:%02d:%02d", days, hours, min);
   } else {
     if(days < 99)
-        uptimeData = String::format("Uptime in (yy:dd:hh:mm): %02d:%02d:%02d:%02d", years, days, hours, min);
-          uptimeData = String::format("Uptime in (yy:ddd:hh:mm): %02d:%03d:%02d:%02d", years, days, hours, min);
+      uptimeData = String::format("Uptime in (yy:dd:hh:mm): %02d:%02d:%02d:%02d", years, days, hours, min);
+    else
+      uptimeData = String::format("Uptime in (yy:ddd:hh:mm): %02d:%03d:%02d:%02d", years, days, hours, min);
   }
 
   //Send the dataString to Pushover.net for request of push notification

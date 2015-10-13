@@ -350,16 +350,17 @@ int alarmModule(String command) {
 
 /******************************************************************************************************************
  * Function Name  : uptime
- * Description    : When called it will trigger a notification request that will notify me of the uptime lapsed
- *                  since the begining of the program
- * Takes in       : The command string ("getUptime")
+ * Description    : When called with the argument "getUptime" it will trigger a notification request that will
+                    notify me of the uptime lapsed since the begining of the program. When called with "sendUptime",
+                    it will send the uptimeData string to the Django database server for display.
+ * Takes in       : The command string ("getUptime" || "sendUptime")
  * Input          : None
  * Output         : None
  * Return         : Value of (1 or -1) in INT type
  *                  Returns a negative number on failure
 ******************************************************************************************************************/
 int uptime(String command) {
-  if (command != "getUptime")
+  if (command != "getUptime" && command != "sendUptime")
     return -1;
 
   //Declare the necessary variables for calculating the uptime in years, days, hours and minutes
@@ -388,7 +389,7 @@ int uptime(String command) {
     hours = 0;
   }
     //Get the hours and calculate days, if present
-    if (numberOfHours > 24) {
+    if (numberOfHours > 23) {
         numberOfDays = numberOfHours / 24;
         hours = numberOfHours % 24;
         } else {
@@ -421,11 +422,18 @@ int uptime(String command) {
       uptimeData = String::format("Uptime in (yy:ddd:hh:mm): %02d:%03d:%02d:%02d", years, days, hours, min);
   }
 
-  //Send the dataString to Pushover.net for request of push notification
-  Particle.publish("basement_leak", uptimeData, 60, PRIVATE);
-  //Print stuff on the serial monitor for debugging
-  Serial.println("Uptime Requested...");
-  Serial.println(String(uptimeData) + "\n");
+  //Verify where to send the uptimeData string
+  if(command == "getUptime") {
+    //Send the dataString to Pushover.net for request of push notification
+    Particle.publish("basement_leak", uptimeData, 60, PRIVATE);
+    //Print stuff on the serial monitor for debugging
+    Serial.println("Uptime requested by push notifications...");
+    Serial.println(String(uptimeData) + "\n");
+  } else {
+    Particle.publish("send_owl_data", uptimeData, 60, PRIVATE);
+    Serial.println("Uptime requested by IOTOwl...");
+    Serial.println(String(uptimeData) + "\n");
+  }
   return 1;
 }
 /******************************************************************************************************************/

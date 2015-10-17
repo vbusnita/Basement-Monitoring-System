@@ -6,7 +6,7 @@ This is a hardware monitor for basement water infiltrations. It is based on a Pa
 
 This is a simple website that interacts with the Django database server and the Photon itself, to provide some readings.
 
-(http://iotowl.duckdns.org/)
+**http://iotowl.duckdns.org/**
 
 **The webhook for sending the data to the Django collection server is:**
 

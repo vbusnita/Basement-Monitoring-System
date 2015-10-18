@@ -63,9 +63,10 @@ double tmp = 0;                                     //Variable for storing tempe
 double hmd = 0;                                     //Variable for storing humidity
 int rCounter;                                       //Variable used to store the restart counter
 double startTime;                                   //Variable to store the start time of the program
+char *lci1reading = "Idle";
+char *lci2reading = "Idle";
 
 //Variables for the restart counter
-int flagAddr = 10;
 int counterAddr = 11;
 uint8_t data;
 
@@ -109,6 +110,8 @@ void setup()
     Spark.variable("humidity", &hmd, DOUBLE);
     Spark.variable("startTime", &startTime, DOUBLE);
     Spark.variable("rCounter", &rCounter, INT);
+    Spark.variable("lci1", lci1reading, STRING);
+    Spark.variable("lci2", lci2reading, STRING);
     Spark.function("alarmModule", alarmModule);
     Spark.function("uptime", uptime);
     Spark.function("bMonitor", bMonitor);
@@ -116,10 +119,7 @@ void setup()
     //Read data at EEPROM flagAddr
     data = EEPROM.read(flagAddr);
     //Verify if the restart flag is being used. If not initialize the flag and counter to 0
-    if (data != 1 && data != 0) {
-      EEPROM.update(flagAddr, 0);
-      EEPROM.update(counterAddr, 0);
-      } else {
+
         //Write the restart flag
         EEPROM.update(flagAddr, 1);
         //Update restart counter
@@ -127,7 +127,6 @@ void setup()
         data = ++data;
         EEPROM.update(counterAddr, data);
         rCounter = data;
-      }
 
     DHTnextSampleTime = 0; //Set the first sample time to start immediately
     alarmTimer = 0; //Set the alarm to trigger at first read
@@ -138,12 +137,6 @@ void dht_wrapper() {DHT.isrCallback();}
 
 /* This function loops forever -----------------------------------------------------------------------------------*/
 void loop() {
-
-    //Check to see if the restartFlag has been set and reset it
-    data = EEPROM.read(flagAddr);
-    if(data != 0) {
-      EEPROM.update(flagAddr, 0);
-    }
 
     checkForDebugMode();  //Verify if the debug button was pressed
     if (lciSensorModule()) {
@@ -250,13 +243,21 @@ boolean lciSensorModule() {
     if(lci1ExposedToWater() || lci2ExposedToWater()) {
         if(lci1ExposedToWater()) {
           lci1Value = true;
+          lci1reading = "Active!";
           status = true;
-        } else lci1Value = false;
+        } else {
+          lci1Value = false;
+          lci1reading = "Idle";
+        }
 
         if(lci2ExposedToWater()) {
           lci2Value = true;
+          lci2reading = "Active!";
           status = true;
-        } else lci2Value = false;
+        } else {
+          lci2Value = false;
+          lci2reading = "Idle";
+        }
       }
       return status;
   }
@@ -476,7 +477,6 @@ int uptime(String command) {
 int bMonitor(String command) {
   if(command != "reset")
     return -1;
-  EEPROM.update(flagAddr, 0);
   EEPROM.update(counterAddr, 0);
   Serial.println("\nEEPROM memory reset!\n");
   Particle.publish("basement_leak", "bMonitor issued a 'reset' command!", 60, PRIVATE);

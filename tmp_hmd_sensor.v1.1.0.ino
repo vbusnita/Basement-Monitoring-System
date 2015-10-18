@@ -58,10 +58,16 @@ boolean useDebugPort = LOW;
 long lastDebounceTime = 0;                        //The last time the output pin was toggled
 long debounceDelay = 50;                          //The debounce time; increase if the output flickers
 
-int tmp = 0;                                      //Particle online variables
-int hmd = 0;                                      //
+//Particle online variables
+double tmp = 0;                                     //Variable for storing temperature
+double hmd = 0;                                     //Variable for storing humidity
+int rCounter;                                       //Variable used to store the restart counter
+double startTime;                                   //Variable to store the start time of the program
 
-int startTime;                                    //Variable to store the start time of the program
+//Variables for the restart counter
+int flagAddr = 10;
+int counterAddr = 11;
+uint8_t data;
 
 /* Function Prototypes--------------------------------------------------------------------------------------------*/
 void checkForDebugMode(void);
@@ -73,6 +79,7 @@ int alarmModule(String command);
 boolean envSensorModule(void);
 boolean lciSensorModule(void);
 int uptime(String command);
+int bMonitor(String command);
 
 /* This function is called once at start up ----------------------------------------------------------------------*/
 void setup()
@@ -98,10 +105,29 @@ void setup()
     digitalWrite(ledGreen, ledGreenState);
 
     //Cloud variable and function declarations
-    Spark.variable("temp", &tmp, INT);
-    Spark.variable("humidity", &hmd, INT);
+    Spark.variable("temp", &tmp, DOUBLE);
+    Spark.variable("humidity", &hmd, DOUBLE);
+    Spark.variable("startTime", &startTime, DOUBLE);
+    Spark.variable("rCounter", &rCounter, INT);
     Spark.function("alarmModule", alarmModule);
     Spark.function("uptime", uptime);
+    Spark.function("bMonitor", bMonitor);
+
+    //Read data at EEPROM flagAddr
+    data = EEPROM.read(flagAddr);
+    //Verify if the restart flag is being used. If not initialize the flag and counter to 0
+    if (data != 1 && data != 0) {
+      EEPROM.update(flagAddr, 0);
+      EEPROM.update(counterAddr, 0);
+      } else {
+        //Write the restart flag
+        EEPROM.update(flagAddr, 1);
+        //Update restart counter
+        data = EEPROM.read(counterAddr);
+        data = ++data;
+        EEPROM.update(counterAddr, data);
+        rCounter = data;
+      }
 
     DHTnextSampleTime = 0; //Set the first sample time to start immediately
     alarmTimer = 0; //Set the alarm to trigger at first read
@@ -112,6 +138,12 @@ void dht_wrapper() {DHT.isrCallback();}
 
 /* This function loops forever -----------------------------------------------------------------------------------*/
 void loop() {
+
+    //Check to see if the restartFlag has been set and reset it
+    data = EEPROM.read(flagAddr);
+    if(data != 0) {
+      EEPROM.update(flagAddr, 0);
+    }
 
     checkForDebugMode();  //Verify if the debug button was pressed
     if (lciSensorModule()) {
@@ -360,7 +392,7 @@ int alarmModule(String command) {
  *                  Returns a negative number on failure
 ******************************************************************************************************************/
 int uptime(String command) {
-  if (command != "getUptime" && command != "sendUptime")
+  if (command != "getUptime")
     return -1;
 
   //Declare the necessary variables for calculating the uptime in years, days, hours and minutes
@@ -422,18 +454,32 @@ int uptime(String command) {
       uptimeData = String::format("Uptime in (yy:ddd:hh:mm): %02d:%03d:%02d:%02d", years, days, hours, min);
   }
 
-  //Verify where to send the uptimeData string
-  if(command == "getUptime") {
     //Send the dataString to Pushover.net for request of push notification
     Particle.publish("basement_leak", uptimeData, 60, PRIVATE);
     //Print stuff on the serial monitor for debugging
     Serial.println("Uptime requested by push notifications...");
-    Serial.println(String(uptimeData) + "\n");
-  } else {
-    Particle.publish("send_owl_data", uptimeData, 60, PRIVATE);
-    Serial.println("Uptime requested by IOTOwl...");
-    Serial.println(String(uptimeData) + "\n");
-  }
+    Serial.println(String(uptimeData));
+
+  return 1;
+}
+/******************************************************************************************************************/
+
+/******************************************************************************************************************
+ * Function Name  : bMonitor
+ * Description    : Function that takes in certain commands and based on those commands performs certain routines
+ * Takes in       : A command string (see commands)
+ * Input          : None
+ * Output         : None
+ * Return         : Value of (1 or -1) in INT type
+ *                  Returns a negative number on failure
+******************************************************************************************************************/
+int bMonitor(String command) {
+  if(command != "reset")
+    return -1;
+  EEPROM.update(flagAddr, 0);
+  EEPROM.update(counterAddr, 0);
+  Serial.println("\nEEPROM memory reset!\n");
+  Particle.publish("basement_leak", "bMonitor issued a 'reset' command!", 60, PRIVATE);
   return 1;
 }
 /******************************************************************************************************************/
